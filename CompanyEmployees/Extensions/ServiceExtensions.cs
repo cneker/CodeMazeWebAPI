@@ -22,6 +22,7 @@ using System.Text;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
 using System.IO;
+using System.Text.RegularExpressions;
 
 namespace CompanyEmployees.Extensions
 {
@@ -54,8 +55,19 @@ namespace CompanyEmployees.Extensions
             IConfiguration configuration)
         {
             services.AddDbContext<RepositoryContext>(opt =>
-                opt.UseNpgsql(configuration.GetConnectionString("postgreConnection"), b =>
-                    b.MigrationsAssembly("CompanyEmployees")));
+            {
+                if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Production")
+                {
+                    var m = Regex.Match(Environment.GetEnvironmentVariable("DATABASE_URL")!, @"postgres://(.*):(.*)@(.*):(.*)/(.*)");
+                    opt.UseNpgsql($"Server={m.Groups[3]};Port={m.Groups[4]};User Id={m.Groups[1]};Password={m.Groups[2]};Database={m.Groups[5]};sslmode=Prefer;Trust Server Certificate=true", b =>
+                    b.MigrationsAssembly("CompanyEmployees"));
+                }
+                else
+                {
+                    opt.UseNpgsql(configuration.GetConnectionString("postgreConnection"), b =>
+                    b.MigrationsAssembly("CompanyEmployees"));
+                }
+            });
         }
 
         public static void ConfigureRepositoryManager(this IServiceCollection services) =>
